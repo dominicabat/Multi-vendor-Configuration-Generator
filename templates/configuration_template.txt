@@ -1,0 +1,79 @@
+
+{% set mask_var = mask -%}
+{% set advertise_prefix_var = advertise_prefix_2 -%}
+{% set prefix_list_seq_var = prefix_list_seq -%}
+{% set prefix_seq_var = prefix_seq_input -%}
+
+
+{% set i = 0 -%}
+
+{% if mask_var == 24 -%}
+{% set dotted_var = '255.255.255.0' -%}
+{% elif mask_var == 23 -%}
+{% set dotted_var = '255.255.254.0' -%}
+{% elif mask_var == 22 %}
+{% set dotted_var = '255.255.248.0' -%}
+{% elif mask_var == 21 %}
+{% set dotted_var = '255.255.240.0' -%}
+{% endif -%}
+
+*************
+Huawei Nodes
+************
+
+sys
+{%- for IP_Prefix, sequence in prefix_seq_var %}
+ip ip-prefix PREFIX_LIST_NAME index {{ sequence }} permit {{ IP_Prefix }} {{ mask_var }} greater-equal {{ mask_var }} less-equal 32
+{%- endfor %}
+bgp 1234
+ ipv4-family unicast
+{%- for IP_Prefix, sequence in prefix_seq_var %}
+  aggregate {{ IP_Prefix }} {{ dotted_var }} as-set detail-suppressed attribute-policy POLICY_NAME
+{%- endfor %}
+  q
+ q
+commit
+q
+save
+
+
+
+*******************
+Cisco IOS XE Nodes 
+*******************
+
+conf t
+{%- for IP_Prefix, sequence in prefix_seq_var %}
+ip prefix-list PREFIXLIST_NAME seq {{ sequence }} permit {{ IP_Prefix }}/{{ mask_var }} le 32
+{%- endfor %}
+router bgp 1234
+ address-family ipv4 unicast
+{%- for IP_Prefix, sequence in prefix_seq_var %}
+  aggregate-address {{ IP_Prefix }} {{ dotted_var }} as-set summary-only attribute-map ROUTEMAP_NAME
+{%- endfor %}
+  end
+wr
+
+
+
+
+
+*******************
+Cisco IOS XR Nodes 
+*******************
+
+edit prefix-set PREFIX_SET
+[ADD]
+
+{%- for IP_Prefix, sequence in prefix_seq_var %}
+{{ IP_Prefix }} ge {{ mask_var }} le 32,
+{%- endfor %}
+
+configure
+router bgp 1234
+ address-fmaily ipv4 unicast
+{%- for IP_Prefix, sequence in prefix_seq_var %}
+  aggregate-address {{ IP_Prefix }}/{{ mask_var }} as-set summary-only route-policy ROUTEPOLICY_NAME
+{%- endfor %}
+  commit
+  end
